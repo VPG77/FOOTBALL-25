@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Football 25 - Juego</title>
+<title>Football 25 - Juego Completo</title>
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -16,21 +16,21 @@
   }
   #menu {
     padding: 20px;
-    max-width: 400px;
+    max-width: 420px;
     margin-top: 40px;
     text-align: center;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 10px;
   }
-  button, select {
-    padding: 10px 20px;
-    margin: 10px 5px;
+  button, select, input[type=text], input[type=color] {
+    padding: 8px 15px;
+    margin: 8px 5px;
     font-size: 16px;
     cursor: pointer;
-    border-radius: 5px;
+    border-radius: 6px;
     border: none;
   }
-  button:hover, select:hover {
+  button:hover, select:hover, input[type=text]:hover, input[type=color]:hover {
     background-color: #0a7a0a;
     color: white;
   }
@@ -39,16 +39,34 @@
     margin: 20px auto;
     background: #0a7a0a;
     border: 3px solid white;
-    border-radius: 5px;
+    border-radius: 10px;
   }
   #infoControls {
     color: #ddd;
-    margin-top: 10px;
-    max-width: 800px;
+    margin-top: 15px;
+    max-width: 820px;
     font-size: 14px;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.6);
     padding: 10px;
-    border-radius: 5px;
+    border-radius: 8px;
+    user-select: none;
+  }
+  #editor {
+    display:none;
+    background: rgba(0,0,0,0.8);
+    border-radius: 10px;
+    padding: 15px;
+    max-width: 420px;
+    margin-top: 20px;
+  }
+  #editor label {
+    display: block;
+    margin-top: 8px;
+    margin-bottom: 3px;
+  }
+  #leagueSelect {
+    margin-top: 15px;
+    margin-bottom: 15px;
   }
 </style>
 </head>
@@ -67,15 +85,30 @@
   </div>
 
   <div>
+    <label for="leagueSelect">Selecciona liga:</label><br />
+    <select id="leagueSelect">
+      <!-- Opciones creadas dinámicamente en JS -->
+    </select>
+  </div>
+
+  <div>
     <label for="teamSelect">Selecciona tu equipo:</label><br />
     <select id="teamSelect">
-      <option value="tigers">Tigers FC</option>
-      <option value="sharks">Sharks United</option>
-      <option value="dragons">Dragons Club</option>
+      <!-- Opciones creadas dinámicamente en JS -->
+    </select>
+  </div>
+
+  <div>
+    <label for="difficultySelect">Dificultad:</label><br />
+    <select id="difficultySelect">
+      <option value="easy">Fácil</option>
+      <option value="medium" selected>Medio</option>
+      <option value="hard">Difícil</option>
     </select>
   </div>
 
   <button id="startBtn">Iniciar juego</button>
+  <button id="resetCareerBtn" style="margin-left:10px;">Reiniciar carrera</button>
 </div>
 
 <canvas id="gameCanvas" width="900" height="600"></canvas>
@@ -86,10 +119,628 @@
   Botón izquierdo ratón: Pase corto &nbsp;&nbsp; Botón derecho ratón: Pase largo/centro <br/>
   Q: Entrada ligera &nbsp;&nbsp; D: Entrada agresiva &nbsp;&nbsp; R: Correr con compañero <br/>
   Shift: Sprint &nbsp;&nbsp; Esc: Pausa <br/>
-  <em>Rueda ratón: filigranas</em>
+  Rueda ratón: Filigranas <br/>
+  Flechas arriba/abajo: Cambiar táctica ofensiva/defensiva <br/>
 </div>
 
-<script src="game.js"></script>
+<div id="editor">
+  <h2>Editor de Equipo</h2>
+  <label for="teamNameInput">Nombre del equipo:</label>
+  <input type="text" id="teamNameInput" maxlength="20" />
+  
+  <label for="teamPrimaryColorInput">Color principal:</label>
+  <input type="color" id="teamPrimaryColorInput" />
+
+  <label for="teamSecondaryColorInput">Color secundario:</label>
+  <input type="color" id="teamSecondaryColorInput" />
+  
+  <button id="saveTeamBtn">Guardar cambios</button>
+  <button id="closeEditorBtn">Cerrar editor</button>
+</div>
+
+<script>
+(() => {
+  // --- Datos básicos: Ligas y Equipos ---
+  const leagues = {
+    "Premier League Ficticia": ["Tigers FC", "Sharks United", "Dragons Club", "Falcons City", "Lions FC"],
+    "Liga Inventada": ["Wolves Rangers", "Hawks Valley", "Bulls Town", "Eagles FC", "Panthers United"],
+    "Super Liga": ["Thunder FC", "Cyclones", "Gladiators", "Warriors", "Pirates"]
+  };
+
+  // Colores base para los equipos inventados
+  const baseColors = {
+    "Tigers FC": ["#FF6600", "#FFFFFF"],
+    "Sharks United": ["#0055FF", "#FFFFFF"],
+    "Dragons Club": ["#00AA00", "#FFFFFF"],
+    "Falcons City": ["#770000", "#CCCCCC"],
+    "Lions FC": ["#FFD700", "#000000"],
+
+    "Wolves Rangers": ["#666666", "#DDDDDD"],
+    "Hawks Valley": ["#004400", "#AAAAAA"],
+    "Bulls Town": ["#AA0000", "#FFFFFF"],
+    "Eagles FC": ["#006666", "#FFCC00"],
+    "Panthers United": ["#222222", "#FF4444"],
+
+    "Thunder FC": ["#111177", "#AAAAFF"],
+    "Cyclones": ["#117711", "#AAFFAA"],
+    "Gladiators": ["#771111", "#FFAAAA"],
+    "Warriors": ["#777711", "#FFFFAA"],
+    "Pirates": ["#000000", "#FFFFFF"]
+  };
+
+  // Generar objetos de equipos con jugadores y colores
+  function createTeam(teamName) {
+    let colors = baseColors[teamName] || ["#FFFFFF", "#888888"];
+    return {
+      name: teamName,
+      primaryColor: colors[0],
+      secondaryColor: colors[1],
+      players: createPlayers(teamName, colors[0])
+    };
+  }
+
+  // Crear 11 jugadores con stats aleatorios
+  function createPlayers(teamName, color) {
+    let players = [];
+    for(let i=1; i<=11; i++) {
+      players.push({
+        id: i,
+        name: `${teamName} Player ${i}`,
+        position: i === 1 ? 'Portero' : 'Jugador',
+        x: 100 + (i*60),
+        y: 300 + (Math.random()*40 - 20),
+        speed: 2 + Math.random()*2,
+        stamina: 100,
+        hasBall: false,
+        rating: Math.floor(60 + Math.random()*40),
+        color: color,
+        isAI: true
+      });
+    }
+    // Dar balón a jugador 5 por defecto
+    players[4].hasBall = true;
+    players[4].isAI = false; // jugador controlado
+    return players;
+  }
+
+  // --- Variables globales ---
+  let currentLeagueName = null;
+  let currentTeamName = null;
+  let opponentTeamName = null;
+  let currentDifficulty = "medium";
+  let currentMode = "quick"; // quick, career, edit
+  let playerTeam = null;
+  let opponentTeam = null;
+  let controlledPlayerIndex = 4; // index jugador controlado
+  let gameState = "menu"; // menu, running, paused, editing
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Balón con física sencilla
+  let ball = {
+    x: 400,
+    y: 300,
+    radius: 12,
+    speedX: 0,
+    speedY: 0,
+    holderIndex: controlledPlayerIndex // jugador que tiene balón
+  };
+
+  // --- DOM ---
+  const modeSelect = document.getElementById('modeSelect');
+  const leagueSelect = document.getElementById('leagueSelect');
+  const teamSelect = document.getElementById('teamSelect');
+  const difficultySelect = document.getElementById('difficultySelect');
+  const startBtn = document.getElementById('startBtn');
+  const resetCareerBtn = document.getElementById('resetCareerBtn');
+  const infoControls = document.getElementById('infoControls');
+  const menuDiv = document.getElementById('menu');
+  const editorDiv = document.getElementById('editor');
+  const teamNameInput = document.getElementById('teamNameInput');
+  const teamPrimaryColorInput = document.getElementById('teamPrimaryColorInput');
+  const teamSecondaryColorInput = document.getElementById('teamSecondaryColorInput');
+  const saveTeamBtn = document.getElementById('saveTeamBtn');
+  const closeEditorBtn = document.getElementById('closeEditorBtn');
+
+  // --- Inicialización ---
+  function init() {
+    // Rellenar selects
+    for(let league in leagues) {
+      let opt = document.createElement('option');
+      opt.value = league;
+      opt.textContent = league;
+      leagueSelect.appendChild(opt);
+    }
+    leagueSelect.value = Object.keys(leagues)[0];
+    leagueChanged();
+
+    // Eventos
+    leagueSelect.addEventListener('change', leagueChanged);
+    modeSelect.addEventListener('change', modeChanged);
+    startBtn.addEventListener('click', startGame);
+    resetCareerBtn.addEventListener('click', resetCareer);
+    saveTeamBtn.addEventListener('click', saveTeamChanges);
+    closeEditorBtn.addEventListener('click', closeEditor);
+
+    // Controls para teclado y ratón
+    window.addEventListener('keydown', keyDownHandler);
+    window.addEventListener('keyup', keyUpHandler);
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    canvas.addEventListener('wheel', onWheel);
+
+    // Carga datos carrera si hay
+    loadCareer();
+
+    updateControlsVisibility();
+  }
+
+  // Actualiza equipos según liga seleccionada
+  function leagueChanged() {
+    let teams = leagues[leagueSelect.value];
+    teamSelect.innerHTML = '';
+    teams.forEach(t => {
+      let opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      teamSelect.appendChild(opt);
+    });
+    teamSelect.value = teams[0];
+  }
+
+  // Cambia modo (show/hide editor)
+  function modeChanged() {
+    if(modeSelect.value === "edit") {
+      menuDiv.style.display = "none";
+      editorDiv.style.display = "block";
+      loadTeamToEditor();
+    } else {
+      editorDiv.style.display = "none";
+      menuDiv.style.display = "block";
+    }
+    currentMode = modeSelect.value;
+    updateControlsVisibility();
+  }
+
+  // Cargar equipo actual en editor
+  function loadTeamToEditor() {
+    currentLeagueName = leagueSelect.value;
+    currentTeamName = teamSelect.value;
+    playerTeam = createTeam(currentTeamName);
+
+    teamNameInput.value = playerTeam.name;
+    teamPrimaryColorInput.value = playerTeam.primaryColor;
+    teamSecondaryColorInput.value = playerTeam.secondaryColor;
+  }
+
+  // Guardar cambios editor equipo
+  function saveTeamChanges() {
+    playerTeam.name = teamNameInput.value.trim() || playerTeam.name;
+    playerTeam.primaryColor = teamPrimaryColorInput.value;
+    playerTeam.secondaryColor = teamSecondaryColorInput.value;
+    alert("Cambios guardados (pero no aplicados al juego hasta reiniciar)");
+  }
+
+  // Cerrar editor
+  function closeEditor() {
+    editorDiv.style.display = "none";
+    menuDiv.style.display = "block";
+    modeSelect.value = "quick";
+    currentMode = "quick";
+  }
+
+  // --- Guardar/Cargar carrera ---
+  function saveCareer() {
+    if(currentMode !== "career") return;
+    let saveData = {
+      team: playerTeam,
+      difficulty: currentDifficulty
+    };
+    localStorage.setItem('football25_career', JSON.stringify(saveData));
+    console.log("Carrera guardada");
+  }
+
+  function loadCareer() {
+    let saved = localStorage.getItem('football25_career');
+    if(saved) {
+      try {
+        let data = JSON.parse(saved);
+        currentMode = "career";
+        modeSelect.value = "career";
+        playerTeam = data.team;
+        currentDifficulty = data.difficulty || "medium";
+
+        leagueSelect.disabled = true;
+        teamSelect.disabled = true;
+        difficultySelect.value = currentDifficulty;
+        difficultySelect.disabled = true;
+
+        alert("Carrera cargada. Selecciona 'Iniciar juego' para continuar.");
+      } catch {
+        console.warn("Error cargando carrera");
+      }
+    }
+  }
+
+  function resetCareer() {
+    localStorage.removeItem('football25_career');
+    alert("Carrera reiniciada");
+    leagueSelect.disabled = false;
+    teamSelect.disabled = false;
+    difficultySelect.disabled = false;
+  }
+
+  // --- Inicio de juego ---
+  function startGame() {
+    currentLeagueName = leagueSelect.value;
+    currentTeamName = teamSelect.value;
+    currentDifficulty = difficultySelect.value;
+
+    playerTeam = createTeam(currentTeamName);
+    opponentTeamName = chooseRandomOpponent(currentLeagueName, currentTeamName);
+    opponentTeam = createTeam(opponentTeamName);
+
+    // Definir jugador controlado
+    controlledPlayerIndex = 4; 
+    playerTeam.players.forEach((p,i)=> p.isAI = true);
+    playerTeam.players[controlledPlayerIndex].isAI = false;
+
+    gameState = "running";
+    menuDiv.style.display = "none";
+    editorDiv.style.display = "none";
+    canvas.style.display = "block";
+    infoControls.style.display = "block";
+
+    // Inicializar balón en jugador controlado
+    ball.holderIndex = controlledPlayerIndex;
+    ball.x = playerTeam.players[controlledPlayerIndex].x;
+    ball.y = playerTeam.players[controlledPlayerIndex].y;
+
+    // Reset velocidades balón
+    ball.speedX = 0;
+    ball.speedY = 0;
+
+    saveCareer();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Elegir equipo rival al azar
+  function chooseRandomOpponent(leagueName, excludeTeam) {
+    let teams = leagues[leagueName].filter(t => t !== excludeTeam);
+    return teams[Math.floor(Math.random()*teams.length)];
+  }
+
+  // --- Variables y funciones para controlar jugadores ---
+  const keysDown = {};
+  const keysPressed = {};
+
+  function keyDownHandler(e) {
+    keysDown[e.key.toLowerCase()] = true;
+    keysPressed[e.key.toLowerCase()] = true;
+
+    if(e.key === "Escape" && gameState === "running") {
+      gameState = "paused";
+      alert("Juego pausado. Pulsa OK para continuar.");
+      gameState = "running";
+      keysDown = {};
+    }
+  }
+  function keyUpHandler(e) {
+    keysDown[e.key.toLowerCase()] = false;
+    keysPressed[e.key.toLowerCase()] = false;
+  }
+
+  // --- IA básica para bots (control simple) ---
+  function aiMove(player, team, opposingTeam) {
+    if(!player.isAI) return;
+
+    let targetX = ball.x;
+    let targetY = ball.y;
+    let dist = Math.hypot(player.x - targetX, player.y - targetY);
+
+    if(dist > 100) {
+      // Se mueve hacia el balón
+      moveToward(player, targetX, targetY, player.speed * aiSpeedFactor());
+    } else {
+      // A veces se aleja para dar espacio (random)
+      if(Math.random() < 0.005) {
+        let awayX = player.x + (Math.random()*100 - 50);
+        let awayY = player.y + (Math.random()*50 - 25);
+        moveToward(player, awayX, awayY, player.speed * aiSpeedFactor());
+      }
+    }
+  }
+
+  function aiSpeedFactor() {
+    switch(currentDifficulty) {
+      case "easy": return 0.8;
+      case "hard": return 1.3;
+      default: return 1.0;
+    }
+  }
+
+  // --- Movimiento jugador ---
+  function moveToward(player, targetX, targetY, speed) {
+    let dx = targetX - player.x;
+    let dy = targetY - player.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < 1) return;
+    player.x += (dx/dist) * speed;
+    player.y += (dy/dist) * speed;
+    clampPosition(player);
+  }
+
+  function clampPosition(player) {
+    player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+    player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
+  }
+
+  // --- Cambio jugador controlado ---
+  function switchControlledPlayer() {
+    let startIndex = controlledPlayerIndex;
+    do {
+      controlledPlayerIndex++;
+      if(controlledPlayerIndex >= playerTeam.players.length) controlledPlayerIndex = 0;
+    } while(playerTeam.players[controlledPlayerIndex].isAI && controlledPlayerIndex !== startIndex);
+    // Asegurar que el nuevo jugador no sea AI (si hay)
+    if(playerTeam.players[controlledPlayerIndex].isAI) {
+      controlledPlayerIndex = startIndex; // no cambia si no hay humanos
+    }
+    playerTeam.players.forEach((p,i)=> p.isAI = true);
+    playerTeam.players[controlledPlayerIndex].isAI = false;
+    ball.holderIndex = controlledPlayerIndex;
+  }
+
+  // --- Pase corto y largo ---
+  function passBall(toPlayerIndex, isLongPass) {
+    let fromPlayer = playerTeam.players.find(p => !p.isAI);
+    let toPlayer = playerTeam.players[toPlayerIndex];
+
+    if(!fromPlayer || !toPlayer) return;
+
+    // Balón mueve hacia destino con velocidad según pase
+    let speed = isLongPass ? 15 : 8;
+    ball.speedX = (toPlayer.x - ball.x) / 10 * speed / 10;
+    ball.speedY = (toPlayer.y - ball.y) / 10 * speed / 10;
+    ball.holderIndex = null;
+  }
+
+  // --- Interacciones ratón ---
+  function onMouseDown(e) {
+    if(gameState !== "running") return;
+
+    let rect = canvas.getBoundingClientRect();
+    let mouseX = e.clientX - rect.left;
+    let mouseY = e.clientY - rect.top;
+
+    if(e.button === 0) {
+      // Pase corto a jugador más cercano al clic dentro del equipo propio
+      let closestPlayer = null;
+      let minDist = Infinity;
+      playerTeam.players.forEach(p => {
+        let dist = Math.hypot(p.x - mouseX, p.y - mouseY);
+        if(dist < minDist) {
+          minDist = dist;
+          closestPlayer = p;
+        }
+      });
+      if(closestPlayer) {
+        passBall(closestPlayer.id - 1, false);
+      }
+    } else if(e.button === 2) {
+      // Pase largo/centro
+      let closestPlayer = null;
+      let minDist = Infinity;
+      playerTeam.players.forEach(p => {
+        let dist = Math.hypot(p.x - mouseX, p.y - mouseY);
+        if(dist < minDist) {
+          minDist = dist;
+          closestPlayer = p;
+        }
+      });
+      if(closestPlayer) {
+        passBall(closestPlayer.id - 1, true);
+      }
+    }
+  }
+
+  // --- Filigranas con rueda ratón ---
+  let dribbleMode = 0;
+  function onWheel(e) {
+    if(gameState !== "running") return;
+
+    if(e.deltaY < 0) {
+      dribbleMode = (dribbleMode + 1) % 3;
+    } else {
+      dribbleMode = (dribbleMode + 2) % 3;
+    }
+    e.preventDefault();
+  }
+
+  // --- Variables para controlar ---
+  let sprinting = false;
+
+  // --- Loop principal ---
+  function gameLoop() {
+    if(gameState !== "running") {
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // --- Actualizar estado juego ---
+  function update() {
+    // Control jugador humano
+    let player = playerTeam.players[controlledPlayerIndex];
+    let speed = player.speed;
+    if(keysDown['shift']) speed *= 1.7;
+    if(keysDown['w']) player.y -= speed;
+    if(keysDown['s']) player.y += speed;
+    if(keysDown['a']) player.x -= speed;
+    if(keysDown['d']) player.x += speed;
+    clampPosition(player);
+
+    // Movimiento balón si no lo tiene nadie
+    if(ball.holderIndex === null) {
+      ball.x += ball.speedX;
+      ball.y += ball.speedY;
+      // Fricción básica
+      ball.speedX *= 0.9;
+      ball.speedY *= 0.9;
+
+      // Detectar si balón cerca de algún jugador para cogerlo
+      let allPlayers = playerTeam.players.concat(opponentTeam.players);
+      for(let i=0; i<allPlayers.length; i++) {
+        let p = allPlayers[i];
+        let dist = Math.hypot(p.x - ball.x, p.y - ball.y);
+        if(dist < ball.radius + 15) {
+          ball.holderIndex = p.id - 1;
+          if(playerTeam.players.includes(p)) {
+            controlledPlayerIndex = p.id - 1;
+            playerTeam.players.forEach(pl => pl.isAI = true);
+            p.isAI = false;
+          }
+          ball.speedX = 0;
+          ball.speedY = 0;
+          break;
+        }
+      }
+    } else {
+      // Balón sigue jugador que lo tiene
+      let holder = null;
+      if(ball.holderIndex < playerTeam.players.length) {
+        holder = playerTeam.players[ball.holderIndex];
+      }
+      if(holder) {
+        ball.x = holder.x + 10;
+        ball.y = holder.y - 10;
+      } else {
+        ball.holderIndex = null;
+      }
+    }
+
+    // IA oponente
+    opponentTeam.players.forEach(p => aiMove(p, opponentTeam, playerTeam));
+
+    // Cambiar jugador controlado con E
+    if(keysPressed['e']) {
+      switchControlledPlayer();
+    }
+    keysPressed['e'] = false;
+  }
+
+  // --- Dibujar ---
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawField();
+    drawPlayers(playerTeam.players);
+    drawPlayers(opponentTeam.players);
+    drawBall();
+    drawHUD();
+  }
+
+  function drawField() {
+    // Césped
+    ctx.fillStyle = "#0a7a0a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Líneas blancas campo
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(50, 50);
+    ctx.lineTo(canvas.width - 50, 50);
+    ctx.lineTo(canvas.width - 50, canvas.height - 50);
+    ctx.lineTo(50, canvas.height - 50);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Línea media
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, 50);
+    ctx.lineTo(canvas.width / 2, canvas.height - 50);
+    ctx.stroke();
+
+    // Círculo central
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Porterías (simplificadas)
+    ctx.fillStyle = "white";
+    ctx.fillRect(45, canvas.height/2 - 50, 10, 100);
+    ctx.fillRect(canvas.width - 55, canvas.height/2 - 50, 10, 100);
+  }
+
+  function drawPlayers(players) {
+    players.forEach((p, i) => {
+      ctx.beginPath();
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = i === controlledPlayerIndex && !p.isAI ? "#ffff00" : "black";
+      ctx.lineWidth = 2;
+      ctx.arc(p.x, p.y, 15, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Nombre abajo
+      ctx.fillStyle = "white";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(p.name.split(' ')[2], p.x, p.y + 30);
+
+      // Rating encima jugador
+      ctx.fillStyle = "#ffff00";
+      ctx.font = "10px Arial";
+      ctx.fillText(`★${p.rating}`, p.x, p.y - 20);
+
+      // Balón sobre jugador que lo tiene
+      if(ball.holderIndex === i && playerTeam.players.includes(p)) {
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(p.x + 12, p.y - 12, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+      }
+    });
+  }
+
+  function drawBall() {
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "black";
+    ctx.stroke();
+  }
+
+  function drawHUD() {
+    ctx.fillStyle = "white";
+    ctx.font = "18px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`Equipo: ${playerTeam.name}`, 20, 30);
+    ctx.fillText(`Dificultad: ${currentDifficulty}`, 20, 60);
+  }
+
+  // Mostrar/ocultar controles
+  function updateControlsVisibility() {
+    if(currentMode === "quick" || currentMode === "career") {
+      infoControls.style.display = "block";
+    } else {
+      infoControls.style.display = "none";
+    }
+  }
+
+  // -- Inicializar --
+  init();
+})();
+</script>
 
 </body>
 </html>
+
