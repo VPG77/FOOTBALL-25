@@ -1,29 +1,57 @@
-<!-- Commit para forzar GitHub Pages -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Football 25 - Mini FIFA</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Football 25 - FIFA estilo</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Football 25</h1>
-  <div id="menu">
-    <button onclick="startQuickMatch()">Partido Rápido</button>
-    <button onclick="startTournament()">Torneo</button>
-    <button onclick="startCareer()">Modo Carrera</button>
+
+<!-- PANTALLA INICIO -->
+<div id="startScreen">
+  <nav id="menuVertical">
+    <h1>FOOTBALL 25</h1>
+    <ul>
+      <li><button class="active" onclick="selectMode('partido')">Partido Rápido</button></li>
+      <li><button onclick="selectMode('carrera')">Carrera</button></li>
+      <li><button onclick="selectMode('online')">Modo Online</button></li>
+      <li><button onclick="selectMode('torneos')">Torneos</button></li>
+      <li><button onclick="selectMode('configuracion')">Configuración</button></li>
+    </ul>
+    <button id="btnStart" onclick="startSelectedMode()">Comenzar</button>
+  </nav>
+</div>
+
+<!-- CONTENEDOR DEL JUEGO -->
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="900" height="500"></canvas>
+  <div id="gameInfo">
+    <div id="scoreboard">0 - 0</div>
+    <div id="playerStats"></div>
   </div>
+</div>
 
-  <canvas id="gameCanvas" width="800" height="450" style="display:none; background:#006600;"></canvas>
+<script src="game.js"></script>
+<script>
+  let selectedMode = 'partido';
 
-  <div id="controls" style="display:none;">
-    <button onclick="playerAction('pass')">Pase</button>
-    <button onclick="playerAction('shoot')">Disparo</button>
-    <button onclick="playerAction('dribble')">Regate</button>
-  </div>
+  function selectMode(mode) {
+    selectedMode = mode;
+    document.querySelectorAll('#menuVertical ul li button').forEach(btn => {
+      btn.classList.remove('active');
+      if(btn.textContent.toLowerCase().includes(mode)) btn.classList.add('active');
+    });
+  }
 
-  <script src="game.js"></script>
+  function startSelectedMode() {
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('gameContainer').style.display = 'block';
+    startGame(selectedMode);
+  }
+</script>
+
 </body>
 </html>
+
 
