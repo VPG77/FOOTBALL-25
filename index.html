@@ -1,58 +1,95 @@
-<script src="game.js"></script>
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Football 25 - FIFA estilo</title>
-<link rel="stylesheet" href="style.css" />
+<title>Football 25 - Juego</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #003300, #000000);
+    color: white;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #menu {
+    padding: 20px;
+    max-width: 400px;
+    margin-top: 40px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+  }
+  button, select {
+    padding: 10px 20px;
+    margin: 10px 5px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    border: none;
+  }
+  button:hover, select:hover {
+    background-color: #0a7a0a;
+    color: white;
+  }
+  #gameCanvas {
+    display: none;
+    margin: 20px auto;
+    background: #0a7a0a;
+    border: 3px solid white;
+    border-radius: 5px;
+  }
+  #infoControls {
+    color: #ddd;
+    margin-top: 10px;
+    max-width: 800px;
+    font-size: 14px;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 5px;
+  }
+</style>
 </head>
 <body>
 
-<!-- PANTALLA INICIO -->
-<div id="startScreen">
-  <nav id="menuVertical">
-    <h1>FOOTBALL 25</h1>
-    <ul>
-      <li><button class="active" onclick="selectMode('partido')">Partido Rápido</button></li>
-      <li><button onclick="selectMode('carrera')">Carrera</button></li>
-      <li><button onclick="selectMode('online')">Modo Online</button></li>
-      <li><button onclick="selectMode('torneos')">Torneos</button></li>
-      <li><button onclick="selectMode('configuracion')">Configuración</button></li>
-    </ul>
-    <button id="btnStart" onclick="startSelectedMode()">Comenzar</button>
-  </nav>
+<div id="menu">
+  <h1>Football 25</h1>
+
+  <div>
+    <label for="modeSelect">Selecciona modo:</label><br />
+    <select id="modeSelect">
+      <option value="quick">Partido rápido</option>
+      <option value="career">Modo carrera</option>
+      <option value="edit">Editar equipo</option>
+    </select>
+  </div>
+
+  <div>
+    <label for="teamSelect">Selecciona tu equipo:</label><br />
+    <select id="teamSelect">
+      <option value="tigers">Tigers FC</option>
+      <option value="sharks">Sharks United</option>
+      <option value="dragons">Dragons Club</option>
+    </select>
+  </div>
+
+  <button id="startBtn">Iniciar juego</button>
 </div>
 
-<!-- CONTENEDOR DEL JUEGO -->
-<div id="gameContainer">
-  <canvas id="gameCanvas" width="900" height="500"></canvas>
-  <div id="gameInfo">
-    <div id="scoreboard">0 - 0</div>
-    <div id="playerStats"></div>
-  </div>
+<canvas id="gameCanvas" width="900" height="600"></canvas>
+
+<div id="infoControls" style="display:none;">
+  <strong>Controles:</strong> <br/>
+  W A S D: Mover jugador &nbsp;&nbsp; E: Cambiar jugador &nbsp;&nbsp; <br/>
+  Botón izquierdo ratón: Pase corto &nbsp;&nbsp; Botón derecho ratón: Pase largo/centro <br/>
+  Q: Entrada ligera &nbsp;&nbsp; D: Entrada agresiva &nbsp;&nbsp; R: Correr con compañero <br/>
+  Shift: Sprint &nbsp;&nbsp; Esc: Pausa <br/>
+  <em>Rueda ratón: filigranas</em>
 </div>
 
 <script src="game.js"></script>
-<script>
-  let selectedMode = 'partido';
-
-  function selectMode(mode) {
-    selectedMode = mode;
-    document.querySelectorAll('#menuVertical ul li button').forEach(btn => {
-      btn.classList.remove('active');
-      if(btn.textContent.toLowerCase().includes(mode)) btn.classList.add('active');
-    });
-  }
-
-  function startSelectedMode() {
-    document.getElementById('startScreen').style.display = 'none';
-    document.getElementById('gameContainer').style.display = 'block';
-    startGame(selectedMode);
-  }
-</script>
 
 </body>
 </html>
-
-
