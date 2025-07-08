@@ -1,35 +1,117 @@
-body {
-  font-family: Arial, sans-serif;
-  background: #003300;
-  color: white;
-  text-align: center;
+/* Reset */
+* {
+  box-sizing: border-box;
   margin: 0;
-  padding: 20px;
+  padding: 0;
 }
 
-h1 {
-  margin-bottom: 20px;
-}
-
-#menu button, #controls button {
-  background: #004400;
-  border: none;
+body, html {
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #071214;
   color: white;
-  padding: 10px 20px;
-  margin: 10px;
-  font-size: 16px;
+}
+
+/* PANTALLA INICIO */
+#startScreen {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(90deg, rgba(0,0,0,0.9) 40%, transparent 60%), url('https://i.imgur.com/vmH5NJJ.png') no-repeat right center;
+  background-size: contain;
+}
+
+#menuVertical {
+  width: 300px;
+  background-color: #0f2027;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 30px;
+}
+
+#menuVertical h1 {
+  margin-bottom: 40px;
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #00ff90;
+  text-shadow: 0 0 10px #00ff90;
+}
+
+#menuVertical ul {
+  list-style: none;
+}
+
+#menuVertical ul li {
+  margin-bottom: 25px;
+}
+
+#menuVertical ul li button {
+  background: none;
+  border: none;
+  color: #00ff90;
+  font-size: 1.5rem;
   cursor: pointer;
+  padding: 12px 20px;
+  border-left: 5px solid transparent;
+  transition: all 0.3s ease;
+}
+
+#menuVertical ul li button:hover,
+#menuVertical ul li button.active {
+  border-left: 5px solid #00ff90;
+  color: white;
+  font-weight: 700;
+  text-shadow: 0 0 15px #00ff90;
+}
+
+#btnStart {
+  margin-top: 60px;
+  padding: 15px 20px;
+  font-size: 1.2rem;
+  background: #00ff90;
+  color: #071214;
+  border: none;
   border-radius: 5px;
-  transition: background 0.3s ease;
+  cursor: pointer;
 }
 
-#menu button:hover, #controls button:hover {
-  background: #006600;
+/* CONTENEDOR JUEGO */
+#gameContainer {
+  display: none;
+  padding: 20px;
+  background: #071214;
+  height: 100vh;
+  text-align: center;
 }
 
-#gameCanvas {
-  margin-top: 20px;
+/* CANVAS */
+canvas {
   border: 3px solid white;
   border-radius: 10px;
+  background-color: #0b3d02;
+  display: block;
+  margin: 0 auto;
 }
+
+/* INFO DE JUEGO */
+#gameInfo {
+  margin-top: 10px;
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-around;
+}
+
+#scoreboard {
+  font-size: 1.8rem;
+}
+
+#playerStats {
+  font-size: 1.2rem;
+  font-style: italic;
+}
+
 
