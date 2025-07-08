@@ -1,261 +1,275 @@
-// game.js
-
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+canvas.width = 900;
+canvas.height = 600;
 
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
+// Equipaciones y dificultad
+let difficultyLevel = 2; // 0 fácil, 5 experto
+const teamKits = {
+  'Real Cosmos': { home: '#0047ab', away: '#ffffff' },
+  'FC Meteoro': { home: '#d40000', away: '#ffcc00' }
+};
+let currentKit = 'home';
 
-let gameRunning = false;
-let currentMode = 'partido';
-
-// --- Equipos inventados y ligas ---
-const leagues = ['Liga Futura', 'Super Copa', 'Premier Inventada'];
+// Jugadores y equipos
 const teams = [
-  { name: 'Real Cosmos', league: leagues[0], color: '#0052cc' },
-  { name: 'FC Meteoro', league: leagues[1], color: '#cc0000' },
-  { name: 'Atlético Neón', league: leagues[2], color: '#00cc44' },
+  { name: 'Real Cosmos' },
+  { name: 'FC Meteoro' }
 ];
 
-// --- Jugadores ---
+const positionsOrder = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
+let playersTeamA = [];
+let playersTeamB = [];
+
+let controlledPlayerIndex = 0; // jugador controlado del equipo A
+let ball = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  radius: 10,
+  speedX: 0,
+  speedY: 0,
+};
+
 class Player {
-  constructor(name, position, teamColor) {
+  constructor(name, position, teamName) {
     this.name = name;
-    this.position = position; // 'DEL', 'MED', 'DEF', 'POR'
+    this.position = position;
+    this.teamName = teamName;
     this.x = 0;
     this.y = 0;
     this.speed = 2 + Math.random() * 1.5;
     this.radius = 12;
-    this.color = teamColor;
+    this.color = teamKits[teamName][currentKit];
     this.hasBall = false;
-    this.rating = (60 + Math.floor(Math.random() * 40)); // 60-100
+    this.rating = 60 + Math.floor(Math.random() * 40); // rating 60-99
+  }
+  
+  updateColor() {
+    this.color = teamKits[this.teamName][currentKit];
   }
 
   draw() {
+    this.updateColor();
     ctx.beginPath();
     ctx.fillStyle = this.color;
-    ctx.shadowColor = this.hasBall ? 'yellow' : 'black';
-    ctx.shadowBlur = this.hasBall ? 15 : 0;
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Nombre pequeño debajo
-    ctx.fillStyle = 'white';
+    // Dibuja el nombre debajo
+    ctx.fillStyle = '#000';
     ctx.font = '10px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(this.name, this.x, this.y + 22);
+    ctx.fillText(this.name, this.x, this.y + 20);
 
-    // Valoración arriba
-    ctx.fillStyle = 'lightgreen';
-    ctx.font = '12px Arial';
-    ctx.fillText(`⭐${this.rating}`, this.x, this.y - 18);
+    // Dibuja rating arriba
+    ctx.fillStyle = 'gold';
+    ctx.fillText(`⭐${this.rating}`, this.x, this.y - 15);
+
+    // Si tiene balón
+    if(this.hasBall) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'orange';
+      ctx.lineWidth = 3;
+      ctx.arc(this.x, this.y, this.radius + 4, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  moveTowards(targetX, targetY) {
+    let dx = targetX - this.x;
+    let dy = targetY - this.y;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+    if(dist > 1) {
+      this.x += (dx / dist) * this.speed;
+      this.y += (dy / dist) * this.speed;
+    }
   }
 }
 
-// --- Balón ---
-class Ball {
-  constructor() {
-    this.x = WIDTH / 2;
-    this.y = HEIGHT / 2;
-    this.radius = 8;
-    this.speedX = 0;
-    this.speedY = 0;
-    this.friction = 0.98;
-  }
-
-  draw() {
-    ctx.beginPath();
-    ctx.fillStyle = 'white';
-    ctx.shadowColor = 'white';
-    ctx.shadowBlur = 15;
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  update() {
-    this.x += this.speedX;
-    this.y += this.speedY;
-
-    // Fricción para frenarlo poco a poco
-    this.speedX *= this.friction;
-    this.speedY *= this.friction;
-
-    // Limites cancha
-    if(this.x < this.radius) { this.x = this.radius; this.speedX *= -0.7; }
-    if(this.x > WIDTH - this.radius) { this.x = WIDTH - this.radius; this.speedX *= -0.7; }
-    if(this.y < this.radius) { this.y = this.radius; this.speedY *= -0.7; }
-    if(this.y > HEIGHT - this.radius) { this.y = HEIGHT - this.radius; this.speedY *= -0.7; }
-  }
-}
-
-// --- Variables globales ---
-let playersTeamA = [];
-let playersTeamB = [];
-let ball;
-let controlledPlayerIndex = 0;
-let scoreA = 0;
-let scoreB = 0;
-
-// --- Inicializar jugadores ---
 function initPlayers() {
   playersTeamA = [];
   playersTeamB = [];
+  // Posiciones distribuidas en el campo
+  let startX_A = 200;
+  let startX_B = canvas.width - 200;
+  let startY = 100;
+  let gapY = (canvas.height - 200) / (positionsOrder.length - 1);
 
-  // 11 jugadores por equipo: 1 POR, 4 DEF, 4 MED, 2 DEL
-  const positionsOrder = ['POR', 'DEF', 'DEF', 'DEF', 'DEF', 'MED', 'MED', 'MED', 'MED', 'DEL', 'DEL'];
+  for(let i=0; i < positionsOrder.length; i++) {
+    let pA = new Player(`A${i+1}`, positionsOrder[i], teams[0].name);
+    pA.x = startX_A;
+    pA.y = startY + gapY * i;
+    playersTeamA.push(pA);
 
-  for(let i=0; i<11; i++) {
-    playersTeamA.push(new Player(`A${i+1}`, positionsOrder[i], teams[0].color));
-    playersTeamB.push(new Player(`B${i+1}`, positionsOrder[i], teams[1].color));
+    let pB = new Player(`B${i+1}`, positionsOrder[i], teams[1].name);
+    pB.x = startX_B;
+    pB.y = startY + gapY * i;
+    playersTeamB.push(pB);
   }
-
-  // Posiciones simples (ajusta a gusto)
-  playersTeamA.forEach((p,i) => {
-    p.x = 100 + i*50;
-    p.y = 100 + (i%3)*100;
-  });
-
-  playersTeamB.forEach((p,i) => {
-    p.x = WIDTH - 150 - i*50;
-    p.y = 100 + (i%3)*100;
-  });
 }
+initPlayers();
 
-// --- Estado controles ---
+// Variables para control de teclado y ratón
 const keys = {};
+let mouse = {
+  left: false,
+  right: false,
+  wheelDelta: 0
+};
+
 window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
 
-  // Cambiar jugador con Tab
-  if(e.key === 'Tab') {
-    e.preventDefault();
-    controlledPlayerIndex = (controlledPlayerIndex + 1) % playersTeamA.length;
+  if(e.key === 'Escape') pauseGame();
+  if(e.key.toLowerCase() === 'f') showHelp();
+  if(e.key.toLowerCase() === 'e') changePlayer();
+  if(e.key.toLowerCase() === 'q') markOrTackle();
+  if(e.key.toLowerCase() === 'r') runWithCompanion();
+  if(e.key.toLowerCase() === 'd') aggressiveTackle();
+  if(e.key.toLowerCase() === 's') goalkeeperRush();
+  if(e.key === 'ArrowUp') changeTactics('up');
+  if(e.key === 'ArrowDown') changeMentality('down');
+  if(e.key === 'ArrowLeft') changeMentality('left');
+  if(e.key === 'ArrowRight') customTactics();
+  if(e.key.toLowerCase() === 'k') toggleKit();
+
+  if(['1','2','3','4','5','6'].includes(e.key)) {
+    setDifficulty(parseInt(e.key) - 1);
   }
 });
+
 window.addEventListener('keyup', e => {
   keys[e.key.toLowerCase()] = false;
 });
 
-// --- Función para controlar jugador ---
-function controlPlayer(player) {
-  if(keys['arrowup']) player.y -= player.speed;
-  if(keys['arrowdown']) player.y += player.speed;
-  if(keys['arrowleft']) player.x -= player.speed;
-  if(keys['arrowright']) player.x += player.speed;
+canvas.addEventListener('mousedown', e => {
+  if(e.button === 0) mouse.left = true;
+  if(e.button === 2) mouse.right = true;
+});
 
-  // Limitar dentro cancha
-  player.x = Math.min(Math.max(player.radius, player.x), WIDTH - player.radius);
-  player.y = Math.min(Math.max(player.radius, player.y), HEIGHT - player.radius);
+canvas.addEventListener('mouseup', e => {
+  if(e.button === 0) mouse.left = false;
+  if(e.button === 2) mouse.right = false;
+});
 
-  // Pase Z
-  if(keys['z']) {
-    if(player.hasBall) {
-      kickBall(player, 5); // Pase fuerte a la derecha
-      player.hasBall = false;
-    }
-  }
+canvas.addEventListener('wheel', e => {
+  mouse.wheelDelta = e.deltaY;
+  performSkillMove(mouse.wheelDelta);
+});
 
-  // Chutar X
-  if(keys['x']) {
-    if(player.hasBall) {
-      kickBall(player, 10);
-      player.hasBall = false;
-    }
+// Funciones juego
+
+function toggleKit() {
+  currentKit = currentKit === 'home' ? 'away' : 'home';
+  playersTeamA.forEach(p => p.updateColor());
+  playersTeamB.forEach(p => p.updateColor());
+  console.log('Equipación cambiada a:', currentKit);
+}
+
+function setDifficulty(level) {
+  difficultyLevel = Math.min(Math.max(level, 0), 5);
+  console.log('Dificultad cambiada a nivel:', difficultyLevel);
+}
+
+function changePlayer() {
+  controlledPlayerIndex = (controlledPlayerIndex + 1) % playersTeamA.length;
+  console.log('Cambiado jugador a:', playersTeamA[controlledPlayerIndex].name);
+}
+
+function markOrTackle() {
+  console.log('Marcaje o entrada realizada');
+}
+
+function runWithCompanion() {
+  console.log('Carrera con compañero iniciada');
+}
+
+function aggressiveTackle() {
+  console.log('Entrada agresiva ejecutada');
+}
+
+function goalkeeperRush() {
+  console.log('Salida del portero activada');
+}
+
+function changeTactics(direction) {
+  console.log('Cambiando táctica:', direction);
+}
+
+function changeMentality(direction) {
+  console.log('Mentalidad cambiada:', direction);
+}
+
+function customTactics() {
+  console.log('Tácticas personalizadas abiertas');
+}
+
+function performSkillMove(delta) {
+  if(delta < 0) {
+    console.log('Filigrana hacia izquierda');
+  } else if(delta > 0) {
+    console.log('Filigrana hacia derecha');
   }
 }
 
-// --- Balón recibe impulso ---
-function kickBall(player, force) {
-  // Saco vector dirección jugador más cercano rival simple
-  let targetX = player.x + force * 10;
-  let targetY = player.y;
-  ball.speedX = force;
-  ball.speedY = 0;
-  ball.x = player.x + player.radius + ball.radius + 2;
-  ball.y = player.y;
+function pauseGame() {
+  console.log('Juego pausado');
 }
 
-// --- Detectar colisión jugador y balón ---
-function checkBallControl() {
-  let player = playersTeamA[controlledPlayerIndex];
-  let dx = ball.x - player.x;
-  let dy = ball.y - player.y;
-  let dist = Math.sqrt(dx*dx + dy*dy);
+function showHelp() {
+  alert('Controles:\nWASD: mover\nShift: correr\nMouse click izq: pase corto\nMouse click der: pase largo\nE: cambiar jugador\nQ: entrada\nR: carrera\nD: entrada agresiva\nS: salida portero\nK: cambiar equipación\nNúmeros 1-6: dificultad');
+}
 
-  if(dist < ball.radius + player.radius) {
-    player.hasBall = true;
-    ball.speedX = 0;
-    ball.speedY = 0;
-    ball.x = player.x + player.radius + ball.radius;
-    ball.y = player.y;
+function update() {
+  // Control jugador principal
+  let p = playersTeamA[controlledPlayerIndex];
+  if(keys['w']) p.y -= p.speed;
+  if(keys['s']) p.y += p.speed;
+  if(keys['a']) p.x -= p.speed;
+  if(keys['d']) p.x += p.speed;
+  // Limitar al canvas
+  p.x = Math.min(Math.max(p.x, p.radius), canvas.width - p.radius);
+  p.y = Math.min(Math.max(p.y, p.radius), canvas.height - p.radius);
+
+  // Bola sigue jugador con balón si tiene
+  if(p.hasBall) {
+    ball.x = p.x + 20;
+    ball.y = p.y;
   } else {
-    player.hasBall = false;
-  }
-}
-
-// --- Bot enemigo simple ---
-function botMove() {
-  // Bot mueve balon de forma random simple para demo
-  let bot = playersTeamB[0];
-  if(!bot.hasBall && Math.random() < 0.01) {
-    bot.hasBall = true;
-    ball.x = bot.x + bot.radius + ball.radius;
-    ball.y = bot.y;
-    ball.speedX = -3;
-  }
-
-  if(bot.hasBall) {
+    // simple física bola
     ball.x += ball.speedX;
     ball.y += ball.speedY;
+    ball.speedX *= 0.95;
+    ball.speedY *= 0.95;
+
+    if(ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.speedX *= -1;
+    if(ball.y < ball.radius || ball.y > canvas.height - ball.radius) ball.speedY *= -1;
   }
 }
 
-// --- Actualizar marcador ---
-function updateScore() {
-  document.getElementById('scoreboard').textContent = `${scoreA} - ${scoreB}`;
-}
-
-// --- Dibujar cancha simplificada ---
 function drawField() {
-  // Fondo
-  ctx.fillStyle = '#0b3d02';
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = '#006400';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Líneas cancha
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 3;
+  // Líneas de campo
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
 
-  // Rectángulo borde cancha
-  ctx.strokeRect(10, 10, WIDTH - 20, HEIGHT - 20);
-
-  // Línea medio campo
+  // Línea central
   ctx.beginPath();
-  ctx.moveTo(WIDTH/2, 10);
-  ctx.lineTo(WIDTH/2, HEIGHT-10);
+  ctx.moveTo(canvas.width/2, 50);
+  ctx.lineTo(canvas.width/2, canvas.height - 50);
   ctx.stroke();
 
-  // Círculo medio campo
+  // Círculo central
   ctx.beginPath();
-  ctx.arc(WIDTH/2, HEIGHT/2, 70, 0, Math.PI * 2);
+  ctx.arc(canvas.width/2, canvas.height/2, 70, 0, 2 * Math.PI);
   ctx.stroke();
-
-  // Porterías simplificadas
-  ctx.strokeRect(5, HEIGHT/2 - 50, 10, 100);
-  ctx.strokeRect(WIDTH-15, HEIGHT/2 - 50, 10, 100);
 }
 
-// --- Función principal juego ---
-function gameLoop() {
-  if(!gameRunning) return;
-
-  // Actualizar lógica
-  controlPlayer(playersTeamA[controlledPlayerIndex]);
-  checkBallControl();
-  ball.update();
-  botMove();
-  updateScore();
-
-  // Dibujar todo
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawField();
 
   // Dibujar jugadores
@@ -263,8 +277,30 @@ function gameLoop() {
   playersTeamB.forEach(p => p.draw());
 
   // Dibujar balón
-  ball.draw();
+  ctx.beginPath();
+  ctx.fillStyle = 'white';
+  ctx.arc(ball.x, ball.y, ball.radius, 0, 2 * Math.PI);
+  ctx.fill();
 
-  // Info jugador controlado
-  let currentPlayer = playersTeamA[controlledPlayerIndex];
-  document.getElementBy
+  // Indicador jugador controlado
+  let p = playersTeamA[controlledPlayerIndex];
+  ctx.strokeStyle = 'yellow';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.radius + 5, 0, 2 * Math.PI);
+  ctx.stroke();
+
+  // Mostrar dificultad y kit
+  ctx.fillStyle = 'white';
+  ctx.font = '16px Arial';
+  ctx.fillText(`Dificultad: ${difficultyLevel + 1}`, 10, 20);
+  ctx.fillText(`Equipación: ${currentKit}`, 10, 40);
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
