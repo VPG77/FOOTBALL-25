@@ -1,28 +1,35 @@
 body {
   font-family: Arial, sans-serif;
-  text-align: center;
-  background-color: #2d8f2d;
+  background: #003300;
   color: white;
+  text-align: center;
   margin: 0;
-  padding: 0;
+  padding: 20px;
 }
 
-#menu {
-  margin-top: 50px;
+h1 {
+  margin-bottom: 20px;
 }
 
-#gameContainer {
-  margin-top: 20px;
-}
-
-#scoreboard {
-  font-size: 24px;
-  margin-bottom: 10px;
-}
-
-#controls button {
-  font-size: 16px;
-  margin: 5px;
+#menu button, #controls button {
+  background: #004400;
+  border: none;
+  color: white;
   padding: 10px 20px;
+  margin: 10px;
+  font-size: 16px;
   cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.3s ease;
 }
+
+#menu button:hover, #controls button:hover {
+  background: #006600;
+}
+
+#gameCanvas {
+  margin-top: 20px;
+  border: 3px solid white;
+  border-radius: 10px;
+}
+
