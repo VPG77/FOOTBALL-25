@@ -1,0 +1,28 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background-color: #2d8f2d;
+  color: white;
+  margin: 0;
+  padding: 0;
+}
+
+#menu {
+  margin-top: 50px;
+}
+
+#gameContainer {
+  margin-top: 20px;
+}
+
+#scoreboard {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+#controls button {
+  font-size: 16px;
+  margin: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+}
